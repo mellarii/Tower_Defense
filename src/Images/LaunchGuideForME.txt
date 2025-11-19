@@ -1,12 +1,7 @@
 \\
 
-Смотри, пока что пишу ток для GamWindow.cpp, чотко по инструкции делай лээ:
-1. g++ -c GamWindow.cpp -I"C:\Program Files\SFML-3.0.2\include"
-2. g++ GamWindow.cpp -o sfml-app -L"C:\Program Files\SFML-3.0.2\build\lib" -lsfml-graphics -lsfml-window -lsfml-system
-
-и запускаешь командой дефолтной:
-./sfml-app.exe
-
+Смотри, пока что пишу ток для GameWindow.cpp, чотко по инструкции делай лээ:катакбас блэээ
+f5 жмьош и всьё еабшица 
 \\
 
 на некоторые команды можно юзать выделить -> Alt+F12 будет приколюха

@@ -8,15 +8,18 @@ int main()
 
     //class Ground
     sf::Texture deafultGroundTexture;
-    if (!deafultGroundTexture.loadFromFile("./src/Images/Ground/Ground16x16.png")) {
+    if (!deafultGroundTexture.loadFromFile("../../src/Images/Ground/Ground16x16.png")) {
         std::cerr << "Error\n";
         return -1;
     }
-    sf::Sprite defGround(deafultGroundTexture);
-    defGround.setScale(sf::Vector2f(10,10));
+    sf::RectangleShape defGround({1920, 1080});
+    deafultGroundTexture.setRepeated(true);
+    defGround.setTexture(&deafultGroundTexture);
+    defGround.setTextureRect(sf::IntRect({0,0}, {1920, 1080}));
+    defGround.setScale({10,10});
 
     sf::Texture leftGroundTexture;
-    if (!leftGroundTexture.loadFromFile("./src/Images/Ground/GroundLeftGround.png")) {
+    if (!leftGroundTexture.loadFromFile("../../src/Images/Ground/GroundLeftGround.png")) {
         std::cerr << "Error\n";
         return -1;
     }
@@ -25,7 +28,7 @@ int main()
     leftGround.setPosition(sf::Vector2f(480,0));
 
     sf::Texture rightGroundTexture;
-    if (!rightGroundTexture.loadFromFile("./src/Images/Ground/GroundRightGround.png")) {
+    if (!rightGroundTexture.loadFromFile("../../src/Images/Ground/GroundRightGround.png")) {
         std::cerr << "Error\n";
         return -1;
     }
@@ -34,7 +37,7 @@ int main()
     rightGround.setPosition(sf::Vector2f(160,0));
 
     sf::Texture GroundGroundTexture;
-    if (!GroundGroundTexture.loadFromFile("./src/Images/Ground/GroundGround.png")) {
+    if (!GroundGroundTexture.loadFromFile("../../src/Images/Ground/GroundGround.png")) {
         std::cerr << "Error\n";
         return -1;
     }
@@ -46,7 +49,7 @@ int main()
     //end Ground
 
     sf::Texture playerTexture;
-    if (!playerTexture.loadFromFile("./src/Images/Wendy.png")) {
+    if (!playerTexture.loadFromFile("../../src/Images/Wendy.png")) {
         std::cerr << "Error\n";
         return -1;
     }
@@ -55,7 +58,7 @@ int main()
     player.setOrigin(sf::Vector2f(8, 8));
 
     sf::Texture enemyTexture;
-    if (!enemyTexture.loadFromFile("./src/Images/LitleGoblin.png")) {
+    if (!enemyTexture.loadFromFile("../../src/Images/LitleGoblin.png")) {
         std::cerr << "Error\n";
         return -1;
     }
@@ -65,7 +68,7 @@ int main()
     enemy.setOrigin(sf::Vector2f(8, 8));
 
     sf::Texture wSwordTexture;
-    if (!wSwordTexture.loadFromFile("./src/Images/Wendy'sSword.png")) {
+    if (!wSwordTexture.loadFromFile("../../src/Images/Wendy'sSword.png")) {
         std::cerr << "Error\n";
         return -1;
     }
@@ -87,7 +90,8 @@ int main()
         
         sf::Vector2i vMousePosition = sf::Mouse::getPosition(window);
         //std::cout << "x: "<< vMousePosition.x << "y: " << vMousePosition.y << std::endl; 
-        GroundGround.setPosition((sf::Vector2f)vMousePosition);    
+        // GroundGround.setPosition((sf::Vector2f)vMousePosition);    
+        GroundGround.setPosition({static_cast<float>((vMousePosition.x/160)*160), static_cast<float>((vMousePosition.y/160)*160)});    
         sf::Vector2f vRequestedOlayerMovement(0.0f, 0.0f);
 
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W))
@@ -109,12 +113,14 @@ int main()
         player.move(vRequestedOlayerMovement*timeSinceLastFrame.asSeconds()*fSpeed);
 
         //window.clear(/*sf::Color::Red*/);
-        for (int i = 0; i < 7; i++) {
-            for (int j = 0; j < 12; j++) {
-                window.draw(defGround);
-                defGround.setPosition(sf::Vector2f(160*j,160*i));
-            }
-        }
+
+        // for (int i = 0; i < 7; i++) {
+        //     for (int j = 0; j < 12; j++) {
+        //         window.draw(defGround);
+        //         defGround.setPosition(sf::Vector2f(160*j,160*i));
+        //     }
+        // }
+        window.draw(defGround);
         window.draw(GroundGround);
         window.draw(leftGround);
         window.draw(rightGround);
