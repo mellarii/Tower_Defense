@@ -67,9 +67,75 @@ struct Enemy {
     void draw(sf::RenderTarget& rt) const { if (!alive) return; if (spr.has_value()) rt.draw(*spr); else rt.draw(fallback); }
 };
 
+struct Projectile {
+    sf::CircleShape shape;
+    sf::Vector2f velocity;
+    float speed;
+    int damage;
+    bool alive;
+    Enemy* target;
+
+    Projectile(sf::Vector2f startPos, Enemy* tgt, float spd, int dmg)
+        : speed(spd), damage(dmg), alive(true), target(tgt)
+    {
+        shape.setRadius(CELL / 10.f);
+        shape.setOrigin(sf::Vector2f(shape.getRadius(), shape.getRadius()));
+        shape.setFillColor(sf::Color::Yellow);
+        shape.setPosition(startPos);
+
+        if (target) {
+            sf::Vector2f dir = target->getPos() - startPos;
+            float len = std::hypot(dir.x, dir.y);
+            if (len > 0.0001f) {
+                velocity = (dir / len) * speed;
+            } else {
+                velocity = sf::Vector2f(0.f, 0.f);
+            }
+        } else {
+            velocity = sf::Vector2f(0.f, 0.f);
+        }
+    }
+
+    void update(float dt) {
+        if (!alive) return;
+        if (!target || !target->alive) {
+            alive = false;
+            return;
+        }
+
+        // Перенаправляемся на цель каждый кадр (простейший homing)
+        sf::Vector2f pos = shape.getPosition();
+        sf::Vector2f toTarget = target->getPos() - pos;
+        float dist = std::hypot(toTarget.x, toTarget.y);
+        if (dist < 1.f) dist = 1.f;
+        sf::Vector2f dir = toTarget / dist;
+        velocity = dir * speed;
+
+        shape.move(velocity * dt);
+
+        // Проверка попадания (по расстоянию)
+        pos = shape.getPosition();
+        toTarget = target->getPos() - pos;
+        dist = std::hypot(toTarget.x, toTarget.y);
+        if (dist < CELL / 4.f) { // радиус попадания
+            target->hp -= damage;
+            if (target->hp <= 0) {
+                target->alive = false;
+            }
+            alive = false;
+        }
+    }
+
+    void draw(sf::RenderTarget& rt) const {
+        if (!alive) return;
+        rt.draw(shape);
+    }
+};
+
+
 int main() {
-    const unsigned int W = 1280;
-    const unsigned int H = 720;
+    const unsigned int W = 1920;
+    const unsigned int H = 1200;
     sf::RenderWindow window(sf::VideoMode(sf::Vector2u(W, H)), "TD - grid path (Ground16x16/GroundGround)");
     window.setFramerateLimit(60);
 
@@ -86,6 +152,7 @@ int main() {
     if (texGoblin.loadFromFile("../../src/Images/LitleGoblin.png")) haveGobl = true;
 
     std::vector<std::unique_ptr<Enemy>> enemies;
+    std::vector<Projectile> projectiles;
 
     sf::Font font;
     bool gotFont = false;
@@ -102,6 +169,7 @@ int main() {
     int wave = 0;
     float spawnTimer = 0.f;
     int toSpawn = 0;
+    float towerShootTimer = 0.f;
     std::vector<sf::Vector2f> currentPathCells;
 
     auto buildPathBFS = [&](std::vector<sf::Vector2f>& outPath)->bool {
@@ -144,6 +212,7 @@ int main() {
 
     while (window.isOpen()) {
         float dt = clock.restart().asSeconds();
+        towerShootTimer += dt;
         while (const std::optional event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) window.close();
         }
@@ -210,6 +279,59 @@ int main() {
         enemies.erase(std::remove_if(enemies.begin(), enemies.end(), [&](const std::unique_ptr<Enemy>& e) {
             return (!e->alive) || (e->pathIdx >= currentPathCells.size());
         }), enemies.end());
+
+        // --- Стрельба башен ---
+const float towerFireInterval = 0.7f;      // раз в 0.7 секунды
+const float towerRange = CELL * 6.f;       // радиус действия башни
+const int   towerDamage = 25;
+const float projectileSpeed = 300.f;
+
+if (towerShootTimer >= towerFireInterval && !enemies.empty()) {
+    // Проходим по всему гриду, ищем клетки с башнями (v == 4)
+    for (int y = 0; y < grid.rows; ++y) {
+        for (int x = 0; x < grid.cols; ++x) {
+            int v = grid.atc(x, y);
+            if (v == 4) {
+                sf::Vector2f towerPos = grid.cellCenter(x, y);
+
+                // Находим ближайшего врага в радиусе
+                Enemy* bestEnemy = nullptr;
+                float bestDist2 = towerRange * towerRange;
+
+                for (auto& ePtr : enemies) {
+                    if (!ePtr->alive) continue;
+                    sf::Vector2f ep = ePtr->getPos();
+                    sf::Vector2f d = ep - towerPos;
+                    float d2 = d.x * d.x + d.y * d.y;
+                    if (d2 < bestDist2) {
+                        bestDist2 = d2;
+                        bestEnemy = ePtr.get();
+                    }
+                }
+
+                if (bestEnemy) {
+                    // Создаём снаряд
+                    projectiles.emplace_back(towerPos, bestEnemy, projectileSpeed, towerDamage);
+                }
+            }
+        }
+    }
+
+    towerShootTimer = 0.f;
+}
+
+// --- Обновление снарядов ---
+for (auto& p : projectiles) {
+    p.update(dt);
+}
+
+// Удаляем «мёртвые» снаряды
+projectiles.erase(
+    std::remove_if(projectiles.begin(), projectiles.end(),
+                   [](const Projectile& p){ return !p.alive; }),
+    projectiles.end()
+);
+
 
         window.clear(sf::Color(30, 30, 30));
 
@@ -295,6 +417,11 @@ int main() {
             window.draw(ui);
             window.draw(hint);
         }
+
+        for (const auto& p : projectiles) {
+            p.draw(window);
+        }
+
 
         window.display();
     }
