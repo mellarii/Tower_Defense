@@ -103,7 +103,6 @@ struct Projectile {
             return;
         }
 
-        // Перенаправляемся на цель каждый кадр (простейший homing)
         sf::Vector2f pos = shape.getPosition();
         sf::Vector2f toTarget = target->getPos() - pos;
         float dist = std::hypot(toTarget.x, toTarget.y);
@@ -113,11 +112,10 @@ struct Projectile {
 
         shape.move(velocity * dt);
 
-        // Проверка попадания (по расстоянию)
         pos = shape.getPosition();
         toTarget = target->getPos() - pos;
         dist = std::hypot(toTarget.x, toTarget.y);
-        if (dist < CELL / 4.f) { // радиус попадания
+        if (dist < CELL / 4.f) {
             target->hp -= damage;
             if (target->hp <= 0) {
                 target->alive = false;
@@ -132,44 +130,79 @@ struct Projectile {
     }
 };
 
-
 int main() {
     const unsigned int W = 1920;
     const unsigned int H = 1200;
     sf::RenderWindow window(sf::VideoMode(sf::Vector2u(W, H)), "TD - grid path (Ground16x16/GroundGround)");
     window.setFramerateLimit(60);
 
+    int startX = -1, startY = -1, endX = -1, endY = -1;
     PathGrid grid(W, H);
+    // --- заранее сгенерированная дорожка ---
+    std::vector<std::pair<int,int>> defaultPathCells = {
+    {0, 1}, {1, 1}, {2, 1}, {3, 1},
+    {3, 2}, {3, 3},
+    {4, 3}, {5, 3}, {6, 3}, {7, 3}
+};
+    int defaultStartIndex = 0;
+    int defaultEndIndex   = int(defaultPathCells.size()) - 1;
+
+    // очистим сетку (на всякий случай)
+    for (int y = 0; y < grid.rows; ++y) {
+        for (int x = 0; x < grid.cols; ++x) {
+            grid.at(x, y) = 0;
+        }
+    }
+    
+    // проставляем путь
+    for (size_t i = 0; i < defaultPathCells.size(); ++i) {
+        int x = defaultPathCells[i].first;
+        int y = defaultPathCells[i].second;
+        if (!grid.inBounds(x, y)) continue;
+        
+        if (int(i) == defaultStartIndex) {
+            grid.at(x, y) = 2; // START
+            startX = x;
+            startY = y;
+        } else if (int(i) == defaultEndIndex) {
+            grid.at(x, y) = 3; // END
+            endX = x;
+            endY = y;
+        } else {
+            grid.at(x, y) = 1; // обычная дорожка GroundGround
+        }
+    }
+
+
+    PathGrid towerCooldown(W, H);
 
     sf::Texture texGround16;
     sf::Texture texGroundGround;
     sf::Texture texWendy;
     sf::Texture texGoblin;
-    bool haveG16 = false, haveGG = false, haveW = false, haveGobl = false;
+    sf::Texture texSkeleton;
+    sf::Texture texStarry; 
+
+    bool haveG16 = false, haveGG = false, haveW = false, haveGobl = false, haveSkel = false, haveStarry = false;
     if (texGround16.loadFromFile("../../src/Images/Ground/Ground16x16.png")) haveG16 = true;
     if (texGroundGround.loadFromFile("../../src/Images/Ground/GroundGround.png")) haveGG = true;
     if (texWendy.loadFromFile("../../src/Images/Wendy.png")) haveW = true;
     if (texGoblin.loadFromFile("../../src/Images/LitleGoblin.png")) haveGobl = true;
+    if (texSkeleton.loadFromFile("../../src/Images/Skeleton.png")) haveSkel = true;
+    if (texStarry.loadFromFile("../../src/Images/Starry.png")) haveStarry = true;
 
     std::vector<std::unique_ptr<Enemy>> enemies;
     std::vector<Projectile> projectiles;
 
-    sf::Font font;
-    bool gotFont = false;
-    if (font.openFromFile("resources/arial.ttf") || font.openFromFile("./arial.ttf")) gotFont = true;
-    // Create Texts using lvalue font (even if not loaded, font is an lvalue)
-    sf::Text ui(font, "", 16);
-    ui.setFillColor(sf::Color::White);
-    sf::Text hint(font, "ЛКМ: ставить тропу GroundGround (первый - START, второй - END). R: старт волны. Shift+ЛКМ: поставить Wendy. ПКМ: удалить.", 14);
-    hint.setFillColor(sf::Color::White);
-    hint.setPosition(sf::Vector2f(6.f, float(H - 22)));
-
     bool leftWas = false, rightWas = false;
-    int startX = -1, startY = -1, endX = -1, endY = -1;
     int wave = 0;
     float spawnTimer = 0.f;
     int toSpawn = 0;
-    float towerShootTimer = 0.f;
+
+    /*-- Экономика --*/
+    int gold = 30;               // стартовое золото
+    const int TOWER_COST = 15;   // цена Wendy и Starry
+    const int GOLD_PER_KILL = 5; // за убийство монстра
     std::vector<sf::Vector2f> currentPathCells;
 
     auto buildPathBFS = [&](std::vector<sf::Vector2f>& outPath)->bool {
@@ -212,7 +245,6 @@ int main() {
 
     while (window.isOpen()) {
         float dt = clock.restart().asSeconds();
-        towerShootTimer += dt;
         while (const std::optional event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) window.close();
         }
@@ -220,18 +252,28 @@ int main() {
         bool leftNow = sf::Mouse::isButtonPressed(sf::Mouse::Button::Left);
         bool rightNow = sf::Mouse::isButtonPressed(sf::Mouse::Button::Right);
         bool shift = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift);
+        bool ctrl = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LControl) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RControl);
 
         if (leftNow && !leftWas) {
             sf::Vector2i mp = sf::Mouse::getPosition(window);
             int gx = mp.x / CELL;
             int gy = mp.y / CELL;
             if (grid.inBounds(gx, gy)) {
+                int cell = grid.atc(gx, gy);
                 if (shift) {
-                    if (grid.atc(gx, gy) == 0) {
+                    // Wendy
+                    if (cell == 0 && gold >= TOWER_COST) {
+                        gold -= TOWER_COST;
                         grid.at(gx, gy) = 4;
                     }
+                } else if (ctrl) {
+                    // Starry
+                    if (cell == 0 && gold >= TOWER_COST) {
+                        gold -= TOWER_COST;
+                        grid.at(gx, gy) = 5;
+                    }
                 } else {
-                    if (grid.atc(gx, gy) == 0) {
+                    if (cell == 0) {
                         grid.at(gx, gy) = 1;
                         if (startX < 0) { startX = gx; startY = gy; grid.at(gx, gy) = 2; }
                         else if (endX < 0) { endX = gx; endY = gy; grid.at(gx, gy) = 3; }
@@ -268,8 +310,30 @@ int main() {
             spawnTimer -= dt;
             if (spawnTimer <= 0.f) {
                 spawnTimer = 0.8f;
+
                 sf::Vector2f startPos = currentPathCells.front();
-                enemies.emplace_back(std::make_unique<Enemy>(haveGobl ? &texGoblin : nullptr, startPos, 60.f + wave * 6.f, 100));
+
+                bool spawnSkeleton = (wave % 2 == 1) && (toSpawn % 2 == 0);
+                const float goblinSpeed = 60.f + wave * 6.f;
+                const int   goblinHP    = 100;
+
+                const float skeletonSpeed = 100.f + wave * 8.f;
+                const int   skeletonHP    = 50;
+                const sf::Texture* enemyTex = nullptr;
+                float enemySpeed = goblinSpeed;
+                int enemyHP = goblinHP;
+
+                if (spawnSkeleton && haveSkel) {
+                    enemyTex = &texSkeleton;
+                    enemySpeed = skeletonSpeed;
+                    enemyHP = skeletonHP;
+                } else {
+                    enemyTex = haveGobl ? &texGoblin : nullptr;
+                    enemySpeed = goblinSpeed;
+                    enemyHP = goblinHP;
+                }
+
+                enemies.emplace_back(std::make_unique<Enemy>(enemyTex, startPos, enemySpeed, enemyHP));
                 toSpawn--;
             }
         }
@@ -277,61 +341,77 @@ int main() {
         for (auto &e : enemies) e->updateFollow(currentPathCells, dt);
 
         enemies.erase(std::remove_if(enemies.begin(), enemies.end(), [&](const std::unique_ptr<Enemy>& e) {
-            return (!e->alive) || (e->pathIdx >= currentPathCells.size());
-        }), enemies.end());
+        if (!e->alive) {
+            gold += GOLD_PER_KILL;
+            return true;
+        }
+        if (e->pathIdx >= currentPathCells.size()) {
+            return true;
+        }
+        return false;
+    }), enemies.end());
+
 
         // --- Стрельба башен ---
-const float towerFireInterval = 0.7f;      // раз в 0.7 секунды
-const float towerRange = CELL * 6.f;       // радиус действия башни
-const int   towerDamage = 25;
-const float projectileSpeed = 300.f;
-
-if (towerShootTimer >= towerFireInterval && !enemies.empty()) {
-    // Проходим по всему гриду, ищем клетки с башнями (v == 4)
-    for (int y = 0; y < grid.rows; ++y) {
-        for (int x = 0; x < grid.cols; ++x) {
-            int v = grid.atc(x, y);
-            if (v == 4) {
+        const float towerFireInterval = 0.7f;      // Wendy
+        const int   towerDamage = 25;
+        const float towerRange = CELL * 6.f;
+        const float projectileSpeed = 300.f;
+        // Starry: намного медленнее, но больнее
+        const float starryFireInterval  = towerFireInterval * 4.f;
+        const int starryDamage = int(towerDamage * 3.5f);
+        
+        for (int y = 0; y < grid.rows; ++y) {
+            for (int x = 0; x < grid.cols; ++x) {
+                int v = grid.atc(x, y);
+                if (v != 4 && v != 5) continue; // не башня
+                int& cd = towerCooldown.at(x, y);
+                if (cd > 0) {
+                    cd -= 1;
+                    continue; // ещё перезаряжается
+                }
                 sf::Vector2f towerPos = grid.cellCenter(x, y);
-
-                // Находим ближайшего врага в радиусе
+                // ищем ближайшего врага
                 Enemy* bestEnemy = nullptr;
                 float bestDist2 = towerRange * towerRange;
-
+                
                 for (auto& ePtr : enemies) {
                     if (!ePtr->alive) continue;
                     sf::Vector2f ep = ePtr->getPos();
-                    sf::Vector2f d = ep - towerPos;
+                    sf::Vector2f d  = ep - towerPos;
                     float d2 = d.x * d.x + d.y * d.y;
                     if (d2 < bestDist2) {
                         bestDist2 = d2;
                         bestEnemy = ePtr.get();
                     }
                 }
-
-                if (bestEnemy) {
-                    // Создаём снаряд
-                    projectiles.emplace_back(towerPos, bestEnemy, projectileSpeed, towerDamage);
+                if (!bestEnemy) continue;
+                // параметры зависят от типа башни
+                int damage;
+                float fireIntervalSec;
+                if (v == 4) {// Wendy
+                    damage = towerDamage;
+                    fireIntervalSec = towerFireInterval;
+                } else {// v == 5, Starry
+                    damage = starryDamage;
+                    fireIntervalSec = starryFireInterval;
                 }
+                // стреляем
+                projectiles.emplace_back(towerPos, bestEnemy, projectileSpeed, damage);
+                // выставляем перезарядку в "тиках": например, 60 тиков = 1 сек при 60 FPS
+                cd = int(fireIntervalSec * 60.f);
             }
         }
-    }
 
-    towerShootTimer = 0.f;
-}
 
-// --- Обновление снарядов ---
-for (auto& p : projectiles) {
-    p.update(dt);
-}
-
-// Удаляем «мёртвые» снаряды
-projectiles.erase(
-    std::remove_if(projectiles.begin(), projectiles.end(),
-                   [](const Projectile& p){ return !p.alive; }),
-    projectiles.end()
-);
-
+        for (auto& p : projectiles) {
+            p.update(dt);
+        }
+        projectiles.erase(
+            std::remove_if(projectiles.begin(), projectiles.end(),
+                           [](const Projectile& p){ return !p.alive; }),
+            projectiles.end()
+        );
 
         window.clear(sf::Color(30, 30, 30));
 
@@ -397,6 +477,23 @@ projectiles.erase(
                         c.setFillColor(sf::Color(150, 150, 255));
                         window.draw(c);
                     }
+                } else if (v == 5) {
+                    sf::Vector2f center = grid.cellCenter(x, y);
+                    if (haveStarry) {
+                        sf::Sprite s(texStarry);
+                        auto ts = texStarry.getSize();
+                        s.setOrigin(sf::Vector2f(float(ts.x) / 2.f, float(ts.y) / 2.f));
+                        sf::Vector2f offset(0.f, CELL * 0.3f);
+                        s.setPosition(center + offset);
+                        s.setScale(sf::Vector2f(float(SCALE)*0.68f, float(SCALE)*0.68f));
+                        window.draw(s);
+                    } else {
+                        sf::CircleShape c(CELL / 6.f);
+                        c.setOrigin(sf::Vector2f(CELL / 6.f, CELL / 6.f));
+                        c.setPosition(center);
+                        c.setFillColor(sf::Color(255, 215, 0));
+                        window.draw(c);
+                    }
                 }
             }
         }
@@ -408,20 +505,7 @@ projectiles.erase(
         }
 
         for (auto &e : enemies) e->draw(window);
-
-        if (gotFont) {
-            std::ostringstream ss;
-            ss << "Wave: " << wave << "  To spawn: " << toSpawn << "  Start: " << (startX >= 0 ? std::to_string(startX) + "," + std::to_string(startY) : "none") << "  End: " << (endX >= 0 ? std::to_string(endX) + "," + std::to_string(endY) : "none");
-            ui.setString(ss.str());
-            ui.setPosition(sf::Vector2f(6.f, 6.f));
-            window.draw(ui);
-            window.draw(hint);
-        }
-
-        for (const auto& p : projectiles) {
-            p.draw(window);
-        }
-
+        for (const auto& p : projectiles) p.draw(window);
 
         window.display();
     }
