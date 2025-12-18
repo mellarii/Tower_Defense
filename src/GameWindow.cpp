@@ -6,13 +6,13 @@
 #include <optional>
 #include <sstream>
 #include <algorithm>
-#include <cstdint>
+#include <cstdint> 
 
 constexpr int TILE_PIX = 16;
 constexpr int SCALE = 10;
 constexpr int CELL = TILE_PIX * SCALE;
 
-struct PathGrid {
+struct PathGrid { //Рисование сетки (6 на 12) через одномерный массив. От числа зависит чо в сетке происходит 0 - травка, 1 - дорожка, 2/3 - старт/финишь, 4/5 - Венди/Старри (башенки ну)
     int cols, rows;
     std::vector<int> cells;
     PathGrid(int w, int h) {
@@ -20,19 +20,19 @@ struct PathGrid {
         rows = h / CELL;
         cells.assign(cols * rows, 0);
     }
-    int &at(int x, int y) { return cells[y * cols + x]; }
-    int atc(int x, int y) const { return cells[y * cols + x]; }
-    bool inBounds(int x, int y) const { return x >= 0 && y >= 0 && x < cols && y < rows; }
-    sf::Vector2f cellCenter(int x, int y) const { return { x * CELL + CELL / 2.f, y * CELL + CELL / 2.f }; }
+    int &at(int x, int y) { return cells[y * cols + x]; } 
+    int atc(int x, int y) const { return cells[y * cols + x]; } //Эта и предидущая это чтение и рисование сетки
+    bool inBounds(int x, int y) const { return x >= 0 && y >= 0 && x < cols && y < rows; } //Проверка границ сетки
+    sf::Vector2f cellCenter(int x, int y) const { return { x * CELL + CELL / 2.f, y * CELL + CELL / 2.f }; } //Координаты центра сетки
 };
 
-struct Enemy {
+struct Enemy { //Структура для врагов со всем всем всем, размером, хитбоксом, замена текстуры (если нет картинки), отслеживанием позиции и остальным
     std::optional<sf::Sprite> spr;
     sf::CircleShape fallback;
     float speed;
     int hp;
     size_t pathIdx;
-    bool alive;
+    bool alive; //Тут  конкретно скорость хп, местонахождение, жив или мертв враже объявляется
     Enemy(const sf::Texture* t, sf::Vector2f pos, float spd, int hp_) : speed(spd), hp(hp_), pathIdx(0), alive(true) {
         if (t) {
             spr.emplace(*t);
@@ -64,16 +64,16 @@ struct Enemy {
             spr->setRotation(sf::degrees(ang + 90.f));
         }
     }
-    void draw(sf::RenderTarget& rt) const { if (!alive) return; if (spr.has_value()) rt.draw(*spr); else rt.draw(fallback); }
+    void draw(sf::RenderTarget& rt) const { if (!alive) return; if (spr.has_value()) rt.draw(*spr); else rt.draw(fallback); } //Остальное функции логики по типу отрисовки, местонахождения
 };
 
-struct Projectile {
+struct Projectile { //Структура для пулек башен, они у всех одинаковые
     sf::CircleShape shape;
     sf::Vector2f velocity;
     float speed;
     int damage;
     bool alive;
-    Enemy* target;
+    Enemy* target;//У них есть скорость, урон, есть они или нет и цель, за которой они будут лететь (из за этого есть некоторые баги, но я не знаю пока что как их исправить, они не критичные)
 
     Projectile(sf::Vector2f startPos, Enemy* tgt, float spd, int dmg)
         : speed(spd), damage(dmg), alive(true), target(tgt)
@@ -127,34 +127,34 @@ struct Projectile {
     void draw(sf::RenderTarget& rt) const {
         if (!alive) return;
         rt.draw(shape);
-    }
+    }//Далее тут системные функции для её двиджения, вычитания хп у таргета, отрисовкеи и пропадения после того как она попала во врага
 };
 
-int main() {
+int main() { //Мой мейн
     const unsigned int W = 1920;
-    const unsigned int H = 1200;
+    const unsigned int H = 1200; //Разрешение экрана, лучше оставить такое, иначе при изначальном рендере меньшего окна при открытии в полноэкранку игра имеет ненулевые шансы сломаться
     sf::RenderWindow window(sf::VideoMode(sf::Vector2u(W, H)), "TD - grid path (Ground16x16/GroundGround)");
-    window.setFramerateLimit(60);
+    window.setFramerateLimit(60); 
 
     int startX = -1, startY = -1, endX = -1, endY = -1;
     PathGrid grid(W, H);
-    // --- заранее сгенерированная дорожка ---
+    /* --- Заранее сгенерированная дорожка --- */
     std::vector<std::pair<int,int>> defaultPathCells = {
     {0, 1}, {1, 1}, {2, 1}, {3, 1},
     {3, 2}, {3, 3},
     {4, 3}, {5, 3}, {6, 3}, {7, 3}
 };
     int defaultStartIndex = 0;
-    int defaultEndIndex   = int(defaultPathCells.size()) - 1;
+    int defaultEndIndex = int(defaultPathCells.size()) - 1;
 
-    // очистим сетку (на всякий случай)
+    //Очистим сетку (на всякий случай)
     for (int y = 0; y < grid.rows; ++y) {
         for (int x = 0; x < grid.cols; ++x) {
             grid.at(x, y) = 0;
         }
     }
     
-    // проставляем путь
+    //Проставляем путь
     for (size_t i = 0; i < defaultPathCells.size(); ++i) {
         int x = defaultPathCells[i].first;
         int y = defaultPathCells[i].second;
@@ -169,7 +169,7 @@ int main() {
             endX = x;
             endY = y;
         } else {
-            grid.at(x, y) = 1; // обычная дорожка GroundGround
+            grid.at(x, y) = 1; //Обычная дорожка GroundGround
         }
     }
 
@@ -190,6 +190,7 @@ int main() {
     if (texGoblin.loadFromFile("../../src/Images/LitleGoblin.png")) haveGobl = true;
     if (texSkeleton.loadFromFile("../../src/Images/Skeleton.png")) haveSkel = true;
     if (texStarry.loadFromFile("../../src/Images/Starry.png")) haveStarry = true;
+    //Загрузка текстур (если есть что грузить)
 
     std::vector<std::unique_ptr<Enemy>> enemies;
     std::vector<Projectile> projectiles;
@@ -200,9 +201,9 @@ int main() {
     int toSpawn = 0;
 
     /*-- Экономика --*/
-    int gold = 30;               // стартовое золото
-    const int TOWER_COST = 15;   // цена Wendy и Starry
-    const int GOLD_PER_KILL = 5; // за убийство монстра
+    int gold = 30;               //Стартовое золото
+    const int TOWER_COST = 15;   //Цена Wendy и Starry
+    const int GOLD_PER_KILL = 5; //За убийство монстра
     std::vector<sf::Vector2f> currentPathCells;
 
     auto buildPathBFS = [&](std::vector<sf::Vector2f>& outPath)->bool {
@@ -241,18 +242,26 @@ int main() {
         return true;
     };
 
-    sf::Clock clock;
+    sf::Clock clock; //Нужно для правильной работы кадров, там что то типо что берется каждые две ближайшие секунды и по ним идут кадры шаг за шагом
 
     while (window.isOpen()) {
-        float dt = clock.restart().asSeconds();
+        float dt = clock.restart().asSeconds();//Вычисление времени
         while (const std::optional event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) window.close();
-        }
+        }//Обработка закрытия окошка
 
         bool leftNow = sf::Mouse::isButtonPressed(sf::Mouse::Button::Left);
         bool rightNow = sf::Mouse::isButtonPressed(sf::Mouse::Button::Right);
         bool shift = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift);
         bool ctrl = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LControl) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RControl);
+        //Обработка нажатия на клавиши
+        /* Перечислю что впринципе можно делать, но сами функции будут ниже
+        1. ЛКМ - поставить дорожку (с логикой начало - конец -> потом обычные дорожки)
+        2. ПКМ - удалить обект на сетке под курсором
+        3. ШИФТ + ЛКМ - поставить башню венди *
+        4. КНТРЛ + ЛКМ - поставить башню Старри *
+        5. К (eng R) - запустить волну
+        */
 
         if (leftNow && !leftWas) {
             sf::Vector2i mp = sf::Mouse::getPosition(window);
@@ -264,24 +273,24 @@ int main() {
                     // Wendy
                     if (cell == 0 && gold >= TOWER_COST) {
                         gold -= TOWER_COST;
-                        grid.at(gx, gy) = 4;
-                    }
+                        grid.at(gx, gy) = 4; 
+                    } //3*
                 } else if (ctrl) {
                     // Starry
                     if (cell == 0 && gold >= TOWER_COST) {
                         gold -= TOWER_COST;
                         grid.at(gx, gy) = 5;
-                    }
+                    } //4*
                 } else {
                     if (cell == 0) {
                         grid.at(gx, gy) = 1;
                         if (startX < 0) { startX = gx; startY = gy; grid.at(gx, gy) = 2; }
                         else if (endX < 0) { endX = gx; endY = gy; grid.at(gx, gy) = 3; }
-                    }
+                    } 
                 }
             }
         }
-
+        //Если НЕ шифт и кнтрл то ставить не башни
         if (rightNow && !rightWas) {
             sf::Vector2i mp = sf::Mouse::getPosition(window);
             int gx = mp.x / CELL;
@@ -304,21 +313,21 @@ int main() {
                 toSpawn = 5 + wave * 2;
                 spawnTimer = 0.f;
             }
-        }
+        } //5*
 
         if (toSpawn > 0 && !currentPathCells.empty()) {
             spawnTimer -= dt;
-            if (spawnTimer <= 0.f) {
+            if (spawnTimer <= 0.f) { //Тут время время не вышло, враги спавнятся по логике ниже 
                 spawnTimer = 0.8f;
 
-                sf::Vector2f startPos = currentPathCells.front();
+                sf::Vector2f startPos = currentPathCells.front();//Создаются в currentPathCells т.е. в начале пути
 
                 bool spawnSkeleton = (wave % 2 == 1) && (toSpawn % 2 == 0);
                 const float goblinSpeed = 60.f + wave * 6.f;
-                const int   goblinHP    = 100;
+                const int goblinHP = 100;
 
                 const float skeletonSpeed = 100.f + wave * 8.f;
-                const int   skeletonHP    = 50;
+                const int skeletonHP = 50;
                 const sf::Texture* enemyTex = nullptr;
                 float enemySpeed = goblinSpeed;
                 int enemyHP = goblinHP;
@@ -335,7 +344,7 @@ int main() {
 
                 enemies.emplace_back(std::make_unique<Enemy>(enemyTex, startPos, enemySpeed, enemyHP));
                 toSpawn--;
-            }
+            } //Спавн врагов либо скелетончика либо гоблина. У гоблина больше хп меньше мувспид, у скелета наоборот
         }
 
         for (auto &e : enemies) e->updateFollow(currentPathCells, dt);
@@ -349,29 +358,29 @@ int main() {
             return true;
         }
         return false;
-    }), enemies.end());
+    }), enemies.end()); //Смерть врага и выдача золота если враг умер от вышки
 
 
         // --- Стрельба башен ---
-        const float towerFireInterval = 0.7f;      // Wendy
-        const int   towerDamage = 25;
+        const float towerFireInterval = 0.7f;//Венди
+        const int towerDamage = 25;
         const float towerRange = CELL * 6.f;
         const float projectileSpeed = 300.f;
-        // Starry: намного медленнее, но больнее
+        //Старри: намного медленнее, но больнее
         const float starryFireInterval  = towerFireInterval * 4.f;
         const int starryDamage = int(towerDamage * 3.5f);
         
         for (int y = 0; y < grid.rows; ++y) {
             for (int x = 0; x < grid.cols; ++x) {
                 int v = grid.atc(x, y);
-                if (v != 4 && v != 5) continue; // не башня
+                if (v != 4 && v != 5) continue; //Не башня
                 int& cd = towerCooldown.at(x, y);
                 if (cd > 0) {
                     cd -= 1;
-                    continue; // ещё перезаряжается
+                    continue; //Ещё перезаряжается
                 }
                 sf::Vector2f towerPos = grid.cellCenter(x, y);
-                // ищем ближайшего врага
+                //Ищем ближайшего врага
                 Enemy* bestEnemy = nullptr;
                 float bestDist2 = towerRange * towerRange;
                 
@@ -386,19 +395,19 @@ int main() {
                     }
                 }
                 if (!bestEnemy) continue;
-                // параметры зависят от типа башни
+                //Параметры зависят от типа башни
                 int damage;
                 float fireIntervalSec;
-                if (v == 4) {// Wendy
+                if (v == 4) {//Венди
                     damage = towerDamage;
                     fireIntervalSec = towerFireInterval;
-                } else {// v == 5, Starry
+                } else {//Старри
                     damage = starryDamage;
                     fireIntervalSec = starryFireInterval;
                 }
-                // стреляем
+                //Стреляем пиу пиу
                 projectiles.emplace_back(towerPos, bestEnemy, projectileSpeed, damage);
-                // выставляем перезарядку в "тиках": например, 60 тиков = 1 сек при 60 FPS
+                //Выставляем перезарядку в "тиках": например, 60 тиков = 1 сек при 60 FPS
                 cd = int(fireIntervalSec * 60.f);
             }
         }
@@ -408,10 +417,9 @@ int main() {
             p.update(dt);
         }
         projectiles.erase(
-            std::remove_if(projectiles.begin(), projectiles.end(),
-                           [](const Projectile& p){ return !p.alive; }),
+            std::remove_if(projectiles.begin(), projectiles.end(), [](const Projectile& p){ return !p.alive; }),
             projectiles.end()
-        );
+        ); //Удаление пулек
 
         window.clear(sf::Color(30, 30, 30));
 
@@ -429,7 +437,7 @@ int main() {
                     r.setPosition(pos);
                     r.setFillColor(sf::Color(80, 120, 60));
                     window.draw(r);
-                }
+                }//Рисуем по клеткам травку, но только если рисунок травки есть, иначе закрашиваем
             }
         }
 
@@ -460,7 +468,7 @@ int main() {
                         mark.setPosition(sf::Vector2f(float(x * CELL), float(y * CELL)));
                         mark.setFillColor(sf::Color(255, 0, 0, 100));
                         window.draw(mark);
-                    }
+                    } //в Трех выше рисуем дорожку, и на первую и вторую (тобеш на начало и стар соответственно) поверх рисуем полупрозрачные квадраты, помечая начало и старт
                 } else if (v == 4) {
                     sf::Vector2f center = grid.cellCenter(x, y);
                     if (haveW) {
@@ -476,7 +484,7 @@ int main() {
                         c.setPosition(center);
                         c.setFillColor(sf::Color(150, 150, 255));
                         window.draw(c);
-                    }
+                    } //Рисуем башни и из текстуры, блок елс иф в==4 это венди, а ниже с елс иф в==5 это старри
                 } else if (v == 5) {
                     sf::Vector2f center = grid.cellCenter(x, y);
                     if (haveStarry) {
@@ -502,13 +510,13 @@ int main() {
             sf::VertexArray va(sf::PrimitiveType::LineStrip, static_cast<unsigned int>(currentPathCells.size()));
             for (size_t i = 0; i < currentPathCells.size(); ++i) va[i].position = currentPathCells[i];
             window.draw(va);
-        }
+        } //Рисуем линию с маршрутов для врагов
 
         for (auto &e : enemies) e->draw(window);
-        for (const auto& p : projectiles) p.draw(window);
+        for (const auto& p : projectiles) p.draw(window); //Ну и в конце враги и пули
 
         window.display();
     }
 
-    return 0;
-}
+    return 0; //Кон
+} 
