@@ -1,4 +1,4 @@
-#include <SFML/Graphics.hpp>
+/*#include <SFML/Graphics.hpp>
 #include <vector>
 #include <queue>
 #include <cmath>
@@ -138,7 +138,7 @@ int main() { //Мой мейн
 
     int startX = -1, startY = -1, endX = -1, endY = -1;
     PathGrid grid(W, H);
-    /* --- Заранее сгенерированная дорожка --- */
+    /* --- Заранее сгенерированная дорожка --- *//*
     std::vector<std::pair<int,int>> defaultPathCells = {
     {0, 1}, {1, 1}, {2, 1}, {3, 1},
     {3, 2}, {3, 3},
@@ -200,7 +200,7 @@ int main() { //Мой мейн
     float spawnTimer = 0.f;
     int toSpawn = 0;
 
-    /*-- Экономика --*/
+    /*-- Экономика --*//*
     int gold = 30;               //Стартовое золото
     const int TOWER_COST = 15;   //Цена Wendy и Starry
     const int GOLD_PER_KILL = 5; //За убийство монстра
@@ -261,7 +261,7 @@ int main() { //Мой мейн
         3. ШИФТ + ЛКМ - поставить башню венди *
         4. КНТРЛ + ЛКМ - поставить башню Старри *
         5. К (eng R) - запустить волну
-        */
+        *//*
 
         if (leftNow && !leftWas) {
             sf::Vector2i mp = sf::Mouse::getPosition(window);
@@ -519,4 +519,4 @@ int main() { //Мой мейн
     }
 
     return 0; //Кон
-} 
+} */

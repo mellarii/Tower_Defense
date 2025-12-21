@@ -8,14 +8,25 @@ FetchContent_Declare(SFML
     GIT_REPOSITORY https://github.com/SFML/SFML.git
     GIT_TAG 3.0.2
     GIT_SHALLOW ON
-    EXCLUDE_FROM_ALL    
-    SYSTEM)
+    EXCLUDE_FROM_ALL
+    SYSTEM
+)
 FetchContent_MakeAvailable(SFML)
 
-file(GLOB_RECURSE SOURCES src/*.cpp)
+# Все cpp из src/
+file(GLOB_RECURSE SOURCES
+    src/*.cpp
+)
 
 add_executable(main ${SOURCES})
 
-target_include_directories(main PRIVATE src/Inlcude)
+# Заголовки в src/ и src/Include (если там лежат .hpp)
+target_include_directories(main PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Inlcude
+)
+
 target_compile_features(main PRIVATE cxx_std_17)
+
+# Линкуем SFML 3
 target_link_libraries(main PRIVATE SFML::Graphics)
