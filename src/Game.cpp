@@ -97,8 +97,9 @@ void Game::update(float dt) {
     // Обработка ввода мыши/клавиш
     bool leftNow  = sf::Mouse::isButtonPressed(sf::Mouse::Button::Left);
     bool rightNow = sf::Mouse::isButtonPressed(sf::Mouse::Button::Right);
-    bool shift    = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift);
-    bool ctrl     = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LControl) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RControl);
+    bool shift = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift);
+    bool ctrl = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LControl) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RControl);
+    bool alt = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LAlt) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RAlt);
     //Обработка нажатия на клавиши
     /* Перечислю что впринципе можно делать, но сами функции будут ниже
     1. ЛКМ - поставить дорожку (с логикой начало - конец -> потом обычные дорожки)
@@ -126,6 +127,11 @@ void Game::update(float dt) {
                     gold -= TOWER_COST;
                     grid.at(gx, gy) = 5;
                 } //4*
+            } else if (alt) {
+                if (cell == 0 && gold >= TOWER_COST) {
+                    gold -= TOWER_COST;
+                    grid.at(gx, gy) = 6;
+                }
             } else {
                 if (cell == 0) {
                     grid.at(gx, gy) = 1;
@@ -188,20 +194,27 @@ void Game::spawnWaveLogic(float dt) {
 
             sf::Vector2f startPos = currentPathCells.front();//Создаются в currentPathCells т.е. в начале пути
 
-            bool  spawnSkeleton = (wave % 2 == 1) && (toSpawn % 2 == 0);
+            bool spawnSkeleton = (wave % 2 == 1) && (toSpawn % 2 == 0);
+            bool spawnBigOrk = (wave % 3 == 0) && (toSpawn % 3 == 0);
             const float goblinSpeed = 60.f + wave * 6.f;
             const int goblinHP = 100 + wave * 2;
 
             const float skeletonSpeed = 100.f + wave * 8.f;
             const int skeletonHP = 1;
+            const float orkSpeed = 100.f + wave;
+            const int orkHP = 600 + wave * 20;;
             const sf::Texture* enemyTex = nullptr;
             float enemySpeed = goblinSpeed;
-            int enemyHP  = goblinHP;
+            int enemyHP = goblinHP;
 
             if (spawnSkeleton && res.haveSkel) {
                 enemyTex   = &res.texSkeleton;
                 enemySpeed = skeletonSpeed;
                 enemyHP  = skeletonHP;
+            } else if (spawnBigOrk && res.haveOrk) {
+                enemyTex = &res.texOrk;
+                enemySpeed = orkSpeed;
+                enemyHP = orkHP;
             } else {
                 enemyTex = res.haveGobl ? &res.texGoblin : nullptr;
                 enemySpeed = goblinSpeed;
@@ -216,18 +229,21 @@ void Game::spawnWaveLogic(float dt) {
 
 void Game::towersShoot() {
     // --- Стрельба башен ---
-    const float towerFireInterval = 0.7f;//Венди
+    const float towerFireInterval = 1.0f;//Венди
     const int towerDamage = 25;
     const float towerRange = CELL * 6.f;
     const float projectileSpeed = 300.f;
+    //Рамона: намного быстрее, но мало урона
+    const float ramonaFireInterval = towerFireInterval / (2.0f + float(wave));
+    const int ramonaDamage = int(towerDamage * 0.5f);
     //Старри: намного медленнее, но больнее
-    const float starryFireInterval = towerFireInterval * 4.f;
+    const float starryFireInterval = towerFireInterval * 5.f;
     const int starryDamage = int(towerDamage * 10.0f + wave * 10.0f);
     
     for (int y = 0; y < grid.rows; ++y) {
         for (int x = 0; x < grid.cols; ++x) {
             int v = grid.atc(x, y);
-            if (v != 4 && v != 5) continue; //Не башня
+            if (v != 4 && v != 5 && v != 6) continue; //Не башня
             int& cd = towerCooldown.at(x, y);
             if (cd > 0) {
                 cd -= 1;
@@ -255,9 +271,12 @@ void Game::towersShoot() {
             if (v == 4) {//Венди
                 damage  = towerDamage;
                 fireIntervalSec = towerFireInterval;
-            } else {//Старри
+            } else if (v == 5) {//Старри
                 damage = starryDamage;
                 fireIntervalSec = starryFireInterval;
+            } else {
+                damage = ramonaDamage;
+                fireIntervalSec = ramonaFireInterval;
             }
             //Стреляем пиу пиу
             projectiles.emplace_back(towerPos, bestEnemy, projectileSpeed, damage);
@@ -351,6 +370,23 @@ void Game::drawTilesAndTowers() {
                     sf::Vector2f offset(0.f, CELL * 0.3f);
                     s.setPosition(center + offset);
                     s.setScale(sf::Vector2f(float(SCALE)*0.68f, float(SCALE)*0.68f));
+                    window.draw(s);
+                } else {
+                    sf::CircleShape c(CELL / 6.f);
+                    c.setOrigin(sf::Vector2f(CELL / 6.f, CELL / 6.f));
+                    c.setPosition(center);
+                    c.setFillColor(sf::Color(255, 215, 0));
+                    window.draw(c);
+                }
+            } else if (v == 6) {
+                sf::Vector2f center = grid.cellCenter(x, y);
+                if (res.haveRamona) {
+                    sf::Sprite s(res.texRamona);
+                    auto ts = res.texRamona.getSize();
+                    s.setOrigin(sf::Vector2f(float(ts.x) / 2.f, float(ts.y) / 2.f));
+                    sf::Vector2f offset(0.f, CELL * 0.1f);
+                    s.setPosition(center + offset);
+                    s.setScale(sf::Vector2f(float(SCALE)*0.61f, float(SCALE)*0.61f));
                     window.draw(s);
                 } else {
                     sf::CircleShape c(CELL / 6.f);

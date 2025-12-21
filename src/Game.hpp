@@ -41,7 +41,7 @@ private:
 
     /*-- Экономика --*/
     int gold = 30;                //Стартовое золото
-    const int TOWER_COST   = 15;  //Цена Wendy и Starry
+    const int TOWER_COST = 15;  //Цена Wendy и Starry и Ramona
     const int GOLD_PER_KILL = 5;  //За убийство монстра
 
     std::vector<sf::Vector2f> currentPathCells;

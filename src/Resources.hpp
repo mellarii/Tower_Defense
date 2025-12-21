@@ -9,6 +9,7 @@ struct Resources {
     sf::Texture texWendy;
     sf::Texture texGoblin;
     sf::Texture texSkeleton;
+    sf::Texture texOrk;
     sf::Texture texStarry; 
     sf::Texture texRamona;
 
@@ -17,6 +18,7 @@ struct Resources {
     bool haveW = false;
     bool haveGobl = false;
     bool haveSkel = false;
+    bool haveOrk = false;
     bool haveStarry = false;
     bool haveRamona = false;
 

@@ -6,9 +6,10 @@ bool Resources::load() {
     haveW = texWendy.loadFromFile("../../src/Images/Wendy.png");
     haveGobl = texGoblin.loadFromFile("../../src/Images/LitleGoblin.png");
     haveSkel = texSkeleton.loadFromFile("../../src/Images/Skeleton.png");
+    haveOrk = texOrk.loadFromFile("../../src/Images/BigOrk.png");
     haveStarry = texStarry.loadFromFile("../../src/Images/Starry.png");
     haveRamona = texRamona.loadFromFile("../../src/Images/Ramona.png");
     //Загрузка текстур (если есть что грузить)
 
-    return haveG16 || haveGG || haveW || haveGobl || haveSkel || haveStarry;
+    return haveG16 || haveGG || haveW || haveGobl || haveSkel || haveOrk || haveStarry || haveRamona;
 }

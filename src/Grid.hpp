@@ -5,8 +5,8 @@
 #include <cstdint>
 
 constexpr int TILE_PIX = 16;
-constexpr int SCALE    = 10;
-constexpr int CELL     = TILE_PIX * SCALE;
+constexpr int SCALE = 10;
+constexpr int CELL = TILE_PIX * SCALE;
 
 struct PathGrid { //Рисование сетки (6 на 12) через одномерный массив. От числа зависит чо в сетке происходит 0 - травка, 1 - дорожка, 2/3 - старт/финишь, 4/5 - Венди/Старри (башенки ну)
     int cols, rows;

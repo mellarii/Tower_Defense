@@ -229,7 +229,7 @@ int main() { //Мой мейн
             }
         }
         if (!found) return false;
-        std::vector<std::pair<int,int>> cells;
+        std::vector<std::pair<int,int>> cells; 
         int cur = endY * C + endX;
         while (cur != -2) {
             int cx = cur % C, cy = cur / C;
